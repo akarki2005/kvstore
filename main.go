@@ -39,7 +39,7 @@ func handleConnection(connection net.Conn) {
 		message, err := reader.ReadString('\n')
 
 		if err != nil {
-			connection.Write([]byte(""))
+			connection.Write([]byte("Error reading message."))
 			return
 		}
 
