@@ -42,7 +42,7 @@ DELETE [key] # Remove a key
 ### Phase 1: Basic KV Store (Week 1)
 - [x] TCP server with concurrent client handling
 - [x] Core operations: GET, SET, DELETE
-- [ ] Thread-safe map with RWMutex
+- [X] Thread-safe map with RWMutex
 - [ ] Graceful shutdown with signal handling
 - [ ] Enhanced protocol (support multi-word values)
 - [ ] Error handling improvements

@@ -6,9 +6,11 @@ import (
 	"net"
 	"bufio"
 	"strings"
+	"sync"
 )
 
 var store = make(map[string]string)
+var mutex sync.RWMutex
 
 func main() {
 	listener, err := net.Listen("tcp", "127.0.0.1:8080")
@@ -79,7 +81,9 @@ func handleConnection(connection net.Conn) {
 }
 
 func handleGET(key string, connection net.Conn) {
+	mutex.RLock()
 	value, exists := store[key]
+	mutex.RUnlock()
 
 	if exists {
 		connection.Write([]byte(value + "\n"))
@@ -90,11 +94,15 @@ func handleGET(key string, connection net.Conn) {
 }
 
 func handleSET(key string, value string, connection net.Conn) {
+	mutex.Lock()
 	store[key] = value
+	mutex.Unlock()
 	connection.Write([]byte("OK\n"))
 }
 
 func handleDELETE(key string, connection net.Conn) {
+	mutex.Lock()
 	delete(store, key)
+	mutex.Unlock()
 	connection.Write([]byte("OK\n"))
 }
