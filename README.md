@@ -53,8 +53,8 @@ DELETE [key] # Remove a key
 
 ### Phase 2: Persistence (Week 1)
 - [x] Append-Only File (AOF) logging
-- [ ] Replay log on startup
-- [ ] Write-Ahead Log (WAL) implementation
+- [x] Replay log on startup
+- [x] Write-Ahead Log (WAL) implementation
 - [ ] Log compaction/snapshotting
 - [ ] Configurable fsync policies (every write vs batched)
 

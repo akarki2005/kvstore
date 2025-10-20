@@ -13,17 +13,25 @@ var (
 	store = make(map[string]string)
 	mutex sync.RWMutex
 	logFile *os.File
+	LOGFILE = "data.aof"
 )
 
 func main() {
-	listener, errListener := net.Listen("tcp", "127.0.0.1:8080")
-	logFile, errOpenFile := os.OpenFile("data.aof", os.WRONLY | os.O_APPEND | os.O_CREATE, 0644)
+	errRecoverLog := recoverLog()
+	if errRecoverLog != nil {
+		fmt.Println("Error recovering logfile.")
+		os.Exit(1)
+	}
 
+	var errOpenFile error
+	logFile, errOpenFile = os.OpenFile(LOGFILE, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0644)
 	if errOpenFile != nil {
 		fmt.Println("ERROR (OpenFile)")
+		os.Exit(1)
 	}
 	defer logFile.Close()
 
+	listener, errListener := net.Listen("tcp", "127.0.0.1:8080")
 	if errListener != nil {
 		fmt.Println("ERROR (Listen)\n")
 		os.Exit(1)
@@ -42,48 +50,58 @@ func main() {
 
 }
 
+func parseCommand(command string) (op, key, value string, err error) {
+	words := strings.Fields(strings.TrimSpace(command))
+	if len(words) == 0 {
+		return "", "", "", fmt.Errorf("Empty command.")
+	}
+
+	op = strings.ToUpper(words[0])
+
+	switch op {
+	case "GET", "DELETE":
+		if len(words) != 2 {
+			return "", "", "", fmt.Errorf("Usage: %s [key]", op)
+		}
+		key = words[1]
+	case "SET":
+		if len(words) != 3 {
+			return "", "", "", fmt.Errorf("Usage: SET [key] [value]")
+		}
+		key = words[1]
+		value = words[2]
+	default:
+		return "", "", "", fmt.Errorf("Unknown operation: %s", op)
+	}
+
+	return op, key, value, nil
+}
+
 func handleConnection(connection net.Conn) {
 	defer connection.Close()
 	reader := bufio.NewReader(connection)
 
 	for {
-		message, err := reader.ReadString('\n')
+		message, readErr := reader.ReadString('\n')
 
-		if err != nil {
+		if readErr != nil {
 			connection.Write([]byte("Error reading message."))
 			return
 		}
 
-		message = strings.TrimSpace(message)
-		words := strings.Split(message, " ")
-
-		if len(words) == 0 {
-			connection.Write([]byte(""))
-			fmt.Println("ERROR: No command specified.\n")
+		op, key, value, err := parseCommand(message)
+		if err != nil {
+			connection.Write([]byte(err.Error() + "\n"))
 			continue
 		}
 
-		switch words[0] {
+		switch op {
 		case "GET":
-			if len(words) != 2 {
-				connection.Write([]byte("Usage: GET [key]\n"))
-				continue
-			}
-			handleGET(words[1], connection)
+			handleGET(key, connection)
 		case "SET":
-			if len(words) != 3 {
-				connection.Write([]byte("Usage: SET [key] [value]\n"))
-				continue
-			}
-			handleSET(words[1], words[2], connection)
+			handleSET(key, value, connection)
 		case "DELETE":
-			if len(words) != 2 {
-				connection.Write([]byte("Usage: DELETE [key]\n"))
-				continue
-			}
-			handleDELETE(words[1], connection)
-		default:
-			connection.Write([]byte("Unknown operation.\n"))
+			handleDELETE(key, connection)
 		}
 	}
 
@@ -108,8 +126,14 @@ func handleSET(key string, value string, connection net.Conn) {
 
 	_, err := logFile.WriteString(fmt.Sprintf("SET %s %s\n", key, value))
 	if err != nil {
-		connection.Write([]byte("ERROR: Failed to persist\n"))
+		connection.Write([]byte("ERROR: Failed to write to log\n"))
 		return
+	}
+
+	err = logFile.Sync()
+	if err != nil {
+		connection.Write([]byte("ERROR: Failed to persist\n"))
+		return 
 	}
 
 	store[key] = value
@@ -122,10 +146,54 @@ func handleDELETE(key string, connection net.Conn) {
 
 	_, err := logFile.WriteString(fmt.Sprintf("DELETE %s\n", key))
 	if err != nil {
+		connection.Write([]byte("ERROR: Failed to write to log\n"))
+		return
+	}
+
+	err = logFile.Sync()
+	if err != nil {
 		connection.Write([]byte("ERROR: Failed to persist\n"))
 		return
 	}
 
 	delete(store, key)
 	connection.Write([]byte("OK\n"))
+}
+
+func recoverLog() error {
+	file, err := os.Open(LOGFILE)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+		
+		op, key, value, err := parseCommand(line)
+		if err != nil {
+			fmt.Printf("WARNING: skipping invalid line: %v\n", err)
+			continue
+		}
+
+		switch op {
+		case "SET":
+			store[key] = value
+		case "DELETE":
+			delete(store, key)
+		}
+	}
+
+	err = scanner.Err()
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Recovery complete.\n")
+	
+	return nil
 }
