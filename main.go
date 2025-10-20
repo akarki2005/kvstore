@@ -9,21 +9,30 @@ import (
 	"sync"
 )
 
-var store = make(map[string]string)
-var mutex sync.RWMutex
+var (
+	store = make(map[string]string)
+	mutex sync.RWMutex
+	logFile *os.File
+)
 
 func main() {
-	listener, err := net.Listen("tcp", "127.0.0.1:8080")
+	listener, errListener := net.Listen("tcp", "127.0.0.1:8080")
+	logFile, errOpenFile := os.OpenFile("data.aof", os.WRONLY | os.O_APPEND | os.O_CREATE, 0644)
 
-	if err != nil {
+	if errOpenFile != nil {
+		fmt.Println("ERROR (OpenFile)")
+	}
+	defer logFile.Close()
+
+	if errListener != nil {
 		fmt.Println("ERROR (Listen)\n")
 		os.Exit(1)
 	}
 
 	for {
-		connection, err := listener.Accept()
+		connection, errAccept := listener.Accept()
 
-		if err != nil {
+		if errAccept != nil {
 			fmt.Println("ERROR (Accept)\n")
 			os.Exit(1)
 		}
@@ -82,8 +91,8 @@ func handleConnection(connection net.Conn) {
 
 func handleGET(key string, connection net.Conn) {
 	mutex.RLock()
+	defer mutex.RUnlock()
 	value, exists := store[key]
-	mutex.RUnlock()
 
 	if exists {
 		connection.Write([]byte(value + "\n"))
@@ -95,14 +104,28 @@ func handleGET(key string, connection net.Conn) {
 
 func handleSET(key string, value string, connection net.Conn) {
 	mutex.Lock()
+	defer mutex.Unlock()
+
+	_, err := logFile.WriteString(fmt.Sprintf("SET %s %s\n", key, value))
+	if err != nil {
+		connection.Write([]byte("ERROR: Failed to persist\n"))
+		return
+	}
+
 	store[key] = value
-	mutex.Unlock()
 	connection.Write([]byte("OK\n"))
 }
 
 func handleDELETE(key string, connection net.Conn) {
 	mutex.Lock()
+	defer mutex.Unlock()
+
+	_, err := logFile.WriteString(fmt.Sprintf("DELETE %s\n", key))
+	if err != nil {
+		connection.Write([]byte("ERROR: Failed to persist\n"))
+		return
+	}
+
 	delete(store, key)
-	mutex.Unlock()
 	connection.Write([]byte("OK\n"))
 }

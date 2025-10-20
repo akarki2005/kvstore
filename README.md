@@ -42,7 +42,7 @@ DELETE [key] # Remove a key
 ### Phase 1: Basic KV Store (Week 1)
 - [x] TCP server with concurrent client handling
 - [x] Core operations: GET, SET, DELETE
-- [X] Thread-safe map with RWMutex
+- [x] Thread-safe map with RWMutex
 - [ ] Graceful shutdown with signal handling
 - [ ] Enhanced protocol (support multi-word values)
 - [ ] Error handling improvements
@@ -52,7 +52,7 @@ DELETE [key] # Remove a key
 ---
 
 ### Phase 2: Persistence (Week 1)
-- [ ] Append-Only File (AOF) logging
+- [x] Append-Only File (AOF) logging
 - [ ] Replay log on startup
 - [ ] Write-Ahead Log (WAL) implementation
 - [ ] Log compaction/snapshotting
