@@ -6,11 +6,14 @@ import (
 	"kvstore/protocol"
 	"kvstore/storage"
 	"net"
+	"sync"
 )
 
 type Server struct {
 	address string
 	store   *storage.Store
+	listener net.Listener
+	waitGroup sync.WaitGroup
 }
 
 func NewServer(address string, store *storage.Store) *Server {
@@ -34,13 +37,27 @@ func (s *Server) Start() error {
 			fmt.Printf("Error accepting connection: %v\n", err)
 			continue
 		}
-
+		s.waitGroup.Add(1)
 		go s.handleConnection(connection)
 	}
 }
 
+func (s *Server) Stop() error {
+	fmt.Println("Stopping server...")
+	
+	if s.listener != nil {
+		s.listener.Close()
+	}
+
+	s.waitGroup.Wait()
+	
+	fmt.Println("Server stopped")
+	return nil
+}
+
 func (s *Server) handleConnection(connection net.Conn) {
 	defer connection.Close()
+	defer s.waitGroup.Done()
 	reader := bufio.NewReader(connection)
 
 	for {
