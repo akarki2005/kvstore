@@ -43,7 +43,7 @@ DELETE [key] # Remove a key
 - [x] TCP server with concurrent client handling
 - [x] Core operations: GET, SET, DELETE
 - [x] Thread-safe map with RWMutex
-- [ ] Graceful shutdown with signal handling
+- [x] Graceful shutdown with signal handling
 - [ ] Enhanced protocol (support multi-word values)
 - [ ] Error handling improvements
 
