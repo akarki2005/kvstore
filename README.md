@@ -55,7 +55,7 @@ DELETE [key] # Remove a key
 - [x] Append-Only File (AOF) logging
 - [x] Replay log on startup
 - [x] Write-Ahead Log (WAL) implementation
-- [ ] Log compaction/snapshotting
+- [x] Log compaction/snapshotting
 - [ ] Configurable fsync policies (every write vs batched)
 
 **Key Learnings:** Durability vs performance trade-offs, crash recovery

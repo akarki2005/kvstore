@@ -6,14 +6,17 @@ import (
 	"kvstore/protocol"
 	"os"
 	"sync"
+	"encoding/gob"
 )
 
-const LOGFILE = "data.aof"
+const LOGFILE = "log.txt"
+const SNAPSHOTFILE = "snapshot.txt"
 
 type Store struct {
 	data map[string]string
 	mutex sync.RWMutex
 	logFile *os.File
+	writes int
 }
 
 func NewStore() (*Store, error) {
@@ -63,6 +66,13 @@ func (s *Store) Set(key, value string) error {
 	}
 
 	s.data[key] = value
+
+	s.writes++
+	if s.writes >= 100 {
+		go s.SaveSnapshot()
+		s.writes = 0
+	}
+
 	return nil
 }
 
@@ -81,10 +91,21 @@ func (s *Store) Delete(key string) error {
 	}
 
 	delete(s.data, key)
+
+	s.writes++
+	if s.writes >= 100 {
+		go s.SaveSnapshot()
+		s.writes = 0
+	}
+
 	return nil
 }
 
 func (s *Store) RecoverLog() error {
+	if err := s.LoadSnapshot(); err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("Error loading snapshot file: %w\n", err)
+	}
+
 	file, err := os.Open(LOGFILE)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -119,5 +140,59 @@ func (s *Store) RecoverLog() error {
 
 	fmt.Printf("Recovery complete.\n")
 	
+	return nil
+}
+
+func (s *Store) SaveSnapshot() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	snapshotFile, err := os.OpenFile(SNAPSHOTFILE, os.O_WRONLY | os.O_CREATE | os.O_TRUNC, 0644)
+	if err != nil {
+		return fmt.Errorf("Error opening snapshot file: %w\n", err)
+	}
+	defer snapshotFile.Close()
+
+	encoder := gob.NewEncoder(snapshotFile)
+	err = encoder.Encode(s.data)
+	if err != nil {
+		return fmt.Errorf("Error encoding data: %w\n", err)
+	}
+
+	err = snapshotFile.Sync()
+	if err != nil {
+		return fmt.Errorf("Error syncing snapshot to disk: %w\n", err)
+	}
+
+	s.logFile.Close()
+	if err := os.Truncate(LOGFILE, 0); err != nil {
+		return fmt.Errorf("Error truncating logfile: %w\n", err)
+	}
+
+	logFile, err := os.OpenFile(LOGFILE, os.O_WRONLY | os.O_APPEND | os.O_CREATE, 0644)
+	if err != nil {
+		return fmt.Errorf("Error opening logfile: %w\n", err)
+	}
+	s.logFile = logFile
+
+	return nil
+}
+
+func (s *Store) LoadSnapshot() error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	snapshotFile, err := os.Open(SNAPSHOTFILE)
+	if err != nil {
+		return err
+	}
+	defer snapshotFile.Close()
+
+	decoder := gob.NewDecoder(snapshotFile)
+	err = decoder.Decode(&s.data)
+	if err != nil {
+		return fmt.Errorf("Error decoding data: %w\n", err)
+	}
+
 	return nil
 }
