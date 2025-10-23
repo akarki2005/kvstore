@@ -30,6 +30,12 @@ SET [key] [value] # Set a key to a corresponding value
 DELETE [key] # Remove a key
 ```
 
+### Running Tests
+
+The project contains a suite of tests you can run to verify program behaviour if you decide to make changes to your local copy.
+
+To conduct these tests, run `$ go test ./...`, or optionally `$ go test -v ./...` for verbose output logs.
+
 ## Project Goals
 
 - Understand persistence and durability guarantees
