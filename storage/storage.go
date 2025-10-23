@@ -12,10 +12,15 @@ import (
 const LOGFILE = "log.txt"
 const SNAPSHOTFILE = "snapshot.txt"
 
+type LogWriter interface {
+	WriteString(string) (int, error)
+	Sync() error
+}
+
 type Store struct {
 	data map[string]string
 	mutex sync.RWMutex
-	logFile *os.File
+	logFile LogWriter
 	writes int
 }
 
