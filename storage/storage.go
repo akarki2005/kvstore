@@ -15,6 +15,7 @@ const SNAPSHOTFILE = "snapshot.txt"
 type LogWriter interface {
 	WriteString(string) (int, error)
 	Sync() error
+	Close() error
 }
 
 type Store struct {

@@ -2,6 +2,24 @@ package storage
 
 import "testing"
 
+// To mock the logfile
+
+type mockLogFile struct{}
+
+func (mockLogFile) WriteString(s string) (int, error) {
+    return len(s), nil
+}
+
+func (mockLogFile) Sync() error {
+    return nil
+}
+
+func (mockLogFile) Close() error {
+	return nil
+}
+
+// Tests
+
 func TestGet(t *testing.T) {
 	tests := []struct {
 		name string
@@ -54,6 +72,54 @@ func TestGet(t *testing.T) {
 			if exists != tt.exists {
 				t.Errorf("actual: %v, expected: %v\n", exists, tt.exists)
 			}
+		})
+	}
+}
+
+func TestSet(t *testing.T) {
+	tests := []struct {
+		name string
+		key string
+		value string
+	}{
+		{
+			name: "set new key",
+			key: "connor",
+			value: "mcdavid",
+		},
+		{
+			name: "overwrite existing key",
+			key: "connor",
+			value: "bedard",
+		},
+		{
+			name: "edge case: set empty string value",
+			key: "ovi",
+			value: "",
+		},
+	}
+
+	s := &Store{
+				data: map[string]string{},
+				logFile: mockLogFile{},
+			}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			err := s.Set(tt.key, tt.value)
+			if err != nil {
+				t.Errorf("Error calling Set(): %v\n", err)
+			}
+
+			value, exists := s.data[tt.key]
+			if !exists {
+				t.Errorf("Error: %q not in store.\n", tt.key)
+			}
+			if value != tt.value {
+				t.Errorf("Error: Expected key %q to have value %q, but got %q\n", tt.key, tt.value, value)
+			}
+
 		})
 	}
 }
