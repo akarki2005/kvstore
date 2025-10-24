@@ -123,3 +123,44 @@ func TestSet(t *testing.T) {
 		})
 	}
 }
+
+func TestDelete(t *testing.T) {
+	tests := []struct {
+		name string
+		key string
+	}{
+		{
+			name: "delete key that exists",
+			key: "cole",
+		},
+		{
+			name: "delete key that doesn't exist",
+			key: "ivan",
+		},
+	}
+
+	s := &Store{
+				data: map[string]string{
+					"cole": "caufield",
+					"juraj": "slafkovsky",
+					"nick": "suzuki",
+					"lane": "hutson",
+				},
+				logFile: mockLogFile{},
+			}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			err := s.Delete(tt.key)
+			if err != nil {
+				t.Errorf("Error calling Delete(): %v\n", err)
+			}
+
+			_, exists := s.data[tt.key]
+			if exists {
+				t.Errorf("Error: Key %q should no longer be in store.\n", tt.key)
+			}
+		})
+	}
+}
